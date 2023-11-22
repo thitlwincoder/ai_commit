@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:ai_commit/src/commands/commands.dart';
 import 'package:ai_commit/src/version.dart';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:cli_completion/cli_completion.dart';
+import 'package:hive/hive.dart';
 import 'package:mason_logger/mason_logger.dart';
 import 'package:pub_updater/pub_updater.dart';
 
@@ -28,6 +31,25 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
     // Add root options and flags
     argParser
       ..addFlag(
+        'all',
+        abbr: 'a',
+        negatable: false,
+        help: 'Automatically stage changes in tracked files for the commit',
+      )
+      ..addFlag(
+        'exclude',
+        abbr: 'x',
+        negatable: false,
+        help: 'Files to exclude from AI analysis',
+      )
+      ..addFlag(
+        'generate',
+        abbr: 'g',
+        negatable: false,
+        help:
+            'Number of messages to generate (Warning: generating multiple costs more)',
+      )
+      ..addFlag(
         'version',
         abbr: 'v',
         negatable: false,
@@ -39,7 +61,7 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
       );
 
     // Add sub commands
-    addCommand(SampleCommand(logger: _logger));
+    addCommand(ConfigCommand(logger: _logger));
     addCommand(UpdateCommand(logger: _logger, pubUpdater: _pubUpdater));
   }
 
@@ -51,6 +73,19 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
 
   @override
   Future<int> run(Iterable<String> args) async {
+    String? home;
+
+    final envVars = Platform.environment;
+    if (Platform.isWindows) {
+      home = envVars['UserProfile'];
+    } else {
+      home = envVars['HOME'];
+    }
+
+    final path = [home ?? '', '.ai_commit'].join(Platform.pathSeparator);
+
+    Hive.init(path);
+
     try {
       final topLevelResults = parse(args);
       if (topLevelResults['verbose'] == true) {
@@ -61,18 +96,15 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
       // On format errors, show the commands error message, root usage and
       // exit with an error code
       _logger
-        ..err(e.message)
-        ..err('$stackTrace')
-        ..info('')
-        ..info(usage);
+        ..err(e.message)..err('$stackTrace')
+        ..info('')..info(usage);
       return ExitCode.usage.code;
     } on UsageException catch (e) {
       // On usage errors, show the commands usage message and
       // exit with an error code
       _logger
         ..err(e.message)
-        ..info('')
-        ..info(e.usage);
+        ..info('')..info(e.usage);
       return ExitCode.usage.code;
     }
   }
@@ -86,9 +118,7 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
     }
 
     // Verbose logs
-    _logger
-      ..detail('Argument information:')
-      ..detail('  Top level options:');
+    _logger..detail('Argument information:')..detail('  Top level options:');
     for (final option in topLevelResults.options) {
       if (topLevelResults.wasParsed(option)) {
         _logger.detail('  - $option: ${topLevelResults[option]}');
@@ -103,6 +133,11 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
         if (commandResult.wasParsed(option)) {
           _logger.detail('    - $option: ${commandResult[option]}');
         }
+      }
+
+      if (commandResult.command != null) {
+        final subCommandResult = commandResult.command!;
+        _logger.detail('    Command sub command: ${subCommandResult.name}');
       }
     }
 
@@ -131,13 +166,11 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
       final latestVersion = await _pubUpdater.getLatestVersion(packageName);
       final isUpToDate = packageVersion == latestVersion;
       if (!isUpToDate) {
-        _logger
-          ..info('')
-          ..info(
-            '''
+        _logger..info('')..info(
+          '''
 ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u2192 ${lightCyan.wrap(latestVersion)}
 Run ${lightCyan.wrap('$executableName update')} to update''',
-          );
+        );
       }
     } catch (_) {}
   }
