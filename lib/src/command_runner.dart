@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ai_commit/src/commands/commands.dart';
+import 'package:ai_commit/src/utils/utils.dart';
 import 'package:ai_commit/src/version.dart';
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
@@ -11,7 +12,7 @@ import 'package:pub_updater/pub_updater.dart';
 
 const executableName = 'ai_commit';
 const packageName = 'ai_commit';
-const description = 'A Very Good Project created by Very Good CLI.';
+const description = 'Dart CLI for generate commit messages with OpenAI.';
 
 /// {@template ai_commit_command_runner}
 /// A [CommandRunner] for the CLI.
@@ -36,18 +37,21 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
         negatable: false,
         help: 'Automatically stage changes in tracked files for the commit',
       )
-      ..addFlag(
+      ..addOption(
         'exclude',
         abbr: 'x',
-        negatable: false,
         help: 'Files to exclude from AI analysis',
       )
+      ..addOption(
+        'count',
+        abbr: 'c',
+        help: '''
+Count of messages to generate (Warning: generating multiple costs more)''',
+      )
       ..addFlag(
-        'generate',
-        abbr: 'g',
-        negatable: false,
-        help:
-            'Number of messages to generate (Warning: generating multiple costs more)',
+        'conventional',
+        help: '''
+Format the commit message according to the Conventional Commits specification.''',
       )
       ..addFlag(
         'version',
@@ -73,6 +77,12 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
 
   @override
   Future<int> run(Iterable<String> args) async {
+    final gitRepoPath = assetGitRepo();
+    if (gitRepoPath.isEmpty) {
+      _logger.info('The current directory must be a git repository.');
+      return ExitCode.software.code;
+    }
+
     String? home;
 
     final envVars = Platform.environment;
@@ -146,8 +156,18 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
     if (topLevelResults['version'] == true) {
       _logger.info(packageVersion);
       exitCode = ExitCode.success.code;
-    } else {
+    } else if (topLevelResults.command?.name == ConfigCommand.commandName ||
+        topLevelResults['help'] == true) {
       exitCode = await super.runCommand(topLevelResults);
+    } else {
+      exitCode = await _startWork(
+        all: topLevelResults.wasParsed('all') ? topLevelResults['all'] : null,
+        count: topLevelResults['count'],
+        exclude: topLevelResults['exclude'],
+        conventional: topLevelResults.wasParsed('conventional')
+            ? topLevelResults['conventional']
+            : null,
+      );
     }
 
     // Check for updates
@@ -166,12 +186,158 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
       final latestVersion = await _pubUpdater.getLatestVersion(packageName);
       final isUpToDate = packageVersion == latestVersion;
       if (!isUpToDate) {
-        _logger..info('')..info(
-          '''
+        _logger
+          ..info('')
+          ..info(
+            '''
 ${lightYellow.wrap('Update available!')} ${lightCyan.wrap(packageVersion)} \u2192 ${lightCyan.wrap(latestVersion)}
 Run ${lightCyan.wrap('$executableName update')} to update''',
-        );
+          );
       }
     } catch (_) {}
+  }
+
+  Future<int> _startWork({
+    required dynamic all,
+    required dynamic count,
+    required dynamic exclude,
+    required dynamic conventional,
+  }) async {
+    try {
+      final apiKey = await getKey();
+      if (apiKey == null) {
+        _logger.info(
+          '''No API key found. To generate one, run ${lightCyan.wrap('$executableName config')}''',
+        );
+        return ExitCode.software.code;
+      }
+
+      if (all == true) await Process.run('git', ['add', '--update']);
+
+      int? msgCount;
+
+      if (count != null) {
+        final value = int.tryParse('$count');
+        if (value == null) {
+          _logger.err('Count must be an integer.');
+
+          return ExitCode.software.code;
+        }
+        if (value < 0) {
+          _logger.err('Count must be an greater than 0.');
+          return ExitCode.software.code;
+        }
+
+        if (value > 5) {
+          _logger.err('Count must be less than or equal to 5.');
+          return ExitCode.software.code;
+        }
+
+        msgCount = value;
+      }
+
+      var excludeFiles = <String>[];
+
+      if (exclude != null) {
+        excludeFiles = [
+          for (final e in exclude.toString().split(',')) e.trim()
+        ];
+      }
+
+      final detectingFiles = _logger.progress('Detecting staged files');
+
+      final staged = await getStagedDiff(excludeFiles: excludeFiles);
+
+      if (staged.isEmpty) {
+        detectingFiles.complete('Detecting staged files');
+        _logger.info(
+          '''
+No staged changes found. Stage your changes manually, or automatically stage all changes with the `--all` options.''',
+        );
+        return ExitCode.success.code;
+      }
+
+      final files = staged['files'] as List<String>? ?? [];
+
+      var message = getDetectedMessage(files: files);
+
+      detectingFiles.complete(
+        '$message:\n${files.map((e) => '     $e').join('\n')}',
+      );
+
+      final s = _logger.progress('The AI is analyzing your changes');
+
+      var messages = <String>[];
+
+      final locale = await getLocale();
+      final maxLength = await getMaxLength();
+
+      var completions = 1;
+
+      if (msgCount != null) {
+        completions = msgCount;
+      } else {
+        completions = await getCount();
+      }
+
+      var isConventional = false;
+
+      if (conventional != null) {
+        isConventional = conventional as bool;
+      } else {
+        isConventional = await getConventional();
+      }
+
+      messages = await generateCommitMessage(
+        apiKey: apiKey,
+        locale: locale,
+        logger: _logger,
+        maxLength: maxLength,
+        completions: completions,
+        diff: staged['diff'] as String,
+        isConventional: isConventional,
+      );
+
+      s.fail('Changes analyzed');
+
+      if (messages.isEmpty) {
+        _logger.info('No commit messages were generated. Try again.');
+        return ExitCode.success.code;
+      }
+
+      if (messages.length == 1) {
+        message = messages.first;
+
+        final confirmed =
+            _logger.confirm('Use this commit message?\n\n   $message\n');
+
+        if (!confirmed) {
+          _logger.info('Commit message canceled.');
+          return ExitCode.software.code;
+        }
+      } else {
+        final selected = _logger.chooseOne(
+          'Pick a commit message to use: ',
+          choices: messages,
+        );
+
+        if (selected.isEmpty) {
+          _logger.info('Commit message canceled.');
+          return ExitCode.software.code;
+        }
+
+        message = selected;
+      }
+
+      await Process.run('git', ['commit', '-m', message]);
+
+      s.complete('Successfully committed');
+
+      return ExitCode.success.code;
+    } catch (e) {
+      print(e.runtimeType);
+      print(e);
+      exit(0);
+    }
   }
 }

@@ -25,16 +25,8 @@ class ConfigCommand extends Command<int> {
 Format the commit message according to the Conventional Commits specification.''',
       )
       ..addOption(
-        'proxy',
-        help: 'Set proxy server for OpenAI API.',
-      )
-      ..addOption(
         'model',
         help: 'Set model name for OpenAI API.',
-      )
-      ..addOption(
-        'timeout',
-        help: 'Set timeout in milliseconds.',
       )
       ..addOption(
         'max-length',
@@ -44,6 +36,8 @@ Format the commit message according to the Conventional Commits specification.''
 
   @override
   String get description => 'ai_commit configuration';
+
+  static const String commandName = 'config';
 
   @override
   String get name => 'config';
@@ -100,24 +94,25 @@ Format the commit message according to the Conventional Commits specification.''
     final count = argResults?['count'];
 
     if (count != null) {
-      if (int.tryParse('$count') != null) {
-        final value = int.parse('$count');
-        if (value < 0) {
-          _logger.err('Count must be an greater than 0.');
-          return ExitCode.software.code;
-        }
+      final value = int.tryParse('$count');
 
-        if (value > 5) {
-          _logger.err('Count must be less than or equal to 5.');
-          return ExitCode.software.code;
-        }
-
-        _logger.success('Setting "count" to "$value".');
-        await setCount(value);
-      } else {
+      if (value == null) {
         _logger.err('Count must be an integer.');
         return ExitCode.software.code;
       }
+
+      if (value < 0) {
+        _logger.err('Count must be an greater than 0.');
+        return ExitCode.software.code;
+      }
+
+      if (value > 5) {
+        _logger.err('Count must be less than or equal to 5.');
+        return ExitCode.software.code;
+      }
+
+      _logger.success('Setting "count" to "$count".');
+      await setCount(value);
     }
 
     // get `conventional` value from args and store
@@ -132,52 +127,19 @@ Format the commit message according to the Conventional Commits specification.''
       }
     }
 
-    // get `proxy` value from args
-    // check valid URL and store
-
-    final proxy = argResults?['proxy'];
-
-    if (proxy != null) {
-      if (Uri.tryParse('$proxy')?.isAbsolute ?? false) {
-        _logger.success('Setting "proxy" to "$proxy".');
-        await setProxy('$proxy');
-      } else {
-        _logger.err('Proxy must be valid URL.');
-        return ExitCode.software.code;
-      }
-    }
-
     // get `model` value from args
     // check isNotEmpty and store
 
     final model = argResults?['model'];
 
     if (model != null) {
-      if (model is String && model.isNotEmpty) {
-        _logger.success('Setting "model" to "$model".');
-        await setModel(model);
-      } else {
+      if ('$model'.isEmpty) {
         _logger.err('Model must be a string.');
         return ExitCode.software.code;
       }
-    }
 
-    // get `timeout` value from args
-    // check greater than 500ms and store
-
-    final timeout = argResults?['timeout'];
-
-    if (timeout != null) {
-      if (int.tryParse('$timeout') != null) {
-        final value = int.parse('$timeout');
-        if (value > 500) {
-          _logger.success('Setting "timeout" to "$value".');
-          await setProxy('$value');
-        } else {
-          _logger.err('Timeout must be an greater than 500ms.');
-          return ExitCode.software.code;
-        }
-      }
+      _logger.success('Setting "model" to "$model".');
+      await setModel('$model');
     }
 
     // get `max-length` value from args
@@ -186,19 +148,20 @@ Format the commit message according to the Conventional Commits specification.''
     final maxLength = argResults?['max-length'];
 
     if (maxLength != null) {
-      if (int.tryParse('$maxLength') != null) {
-        final value = int.parse('$maxLength');
-        if (value > 20) {
-          _logger.success('Setting "max-length" to "$value".');
-          await setProxy('$value');
-        } else {
-          _logger.err('Max length must be an greater than 20.');
-          return ExitCode.software.code;
-        }
-      } else {
+      final value = int.tryParse('$maxLength');
+
+      if (value == null) {
         _logger.err('Max length must be an integer.');
         return ExitCode.software.code;
       }
+
+      if (value < 20) {
+        _logger.err('Max length must be an greater than 20.');
+        return ExitCode.software.code;
+      }
+
+      _logger.success('Setting "max-length" to "$value".');
+      await setMaxLength(value);
     }
 
     return ExitCode.software.code;

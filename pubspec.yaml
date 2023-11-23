@@ -9,7 +9,9 @@ environment:
 dependencies:
   args: ^2.4.2
   cli_completion: ^0.4.0
+  dart_openai: ^5.0.0
   hive: ^2.2.3
+  http: ^1.1.1
   mason_logger: ^0.2.10
   pub_updater: ^0.4.0
 
