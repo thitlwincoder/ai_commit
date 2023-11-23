@@ -44,7 +44,7 @@ Future<void> setCount(int value) async {
 
 // get generate commit message count
 Future<int> getCount() async {
-  final value = await getData('generate_count',1);
+  final value = await getData('generate_count', 1);
   return value as int;
 }
 

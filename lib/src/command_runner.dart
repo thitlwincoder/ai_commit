@@ -12,7 +12,7 @@ import 'package:pub_updater/pub_updater.dart';
 
 const executableName = 'ai_commit';
 const packageName = 'ai_commit';
-const description = 'Dart CLI for generate commit messages with OpenAI.';
+const description = 'Dart CLI for generated commit messages with OpenAI.';
 
 /// {@template ai_commit_command_runner}
 /// A [CommandRunner] for the CLI.
@@ -106,15 +106,18 @@ Format the commit message according to the Conventional Commits specification.''
       // On format errors, show the commands error message, root usage and
       // exit with an error code
       _logger
-        ..err(e.message)..err('$stackTrace')
-        ..info('')..info(usage);
+        ..err(e.message)
+        ..err('$stackTrace')
+        ..info('')
+        ..info(usage);
       return ExitCode.usage.code;
     } on UsageException catch (e) {
       // On usage errors, show the commands usage message and
       // exit with an error code
       _logger
         ..err(e.message)
-        ..info('')..info(e.usage);
+        ..info('')
+        ..info(e.usage);
       return ExitCode.usage.code;
     }
   }
@@ -128,7 +131,9 @@ Format the commit message according to the Conventional Commits specification.''
     }
 
     // Verbose logs
-    _logger..detail('Argument information:')..detail('  Top level options:');
+    _logger
+      ..detail('Argument information:')
+      ..detail('  Top level options:');
     for (final option in topLevelResults.options) {
       if (topLevelResults.wasParsed(option)) {
         _logger.detail('  - $option: ${topLevelResults[option]}');
@@ -203,72 +208,69 @@ Run ${lightCyan.wrap('$executableName update')} to update''',
     required dynamic exclude,
     required dynamic conventional,
   }) async {
-    try {
-      final apiKey = await getKey();
-      if (apiKey == null) {
-        _logger.info(
-          '''No API key found. To generate one, run ${lightCyan.wrap('$executableName config')}''',
-        );
+    final apiKey = await getKey();
+    if (apiKey == null) {
+      _logger.info(
+        '''No API key found. To generate one, run ${lightCyan.wrap('$executableName config')}''',
+      );
+      return ExitCode.software.code;
+    }
+
+    if (all == true) await Process.run('git', ['add', '--update']);
+
+    int? msgCount;
+
+    if (count != null) {
+      final value = int.tryParse('$count');
+      if (value == null) {
+        _logger.err('Count must be an integer.');
+
+        return ExitCode.software.code;
+      }
+      if (value < 0) {
+        _logger.err('Count must be an greater than 0.');
         return ExitCode.software.code;
       }
 
-      if (all == true) await Process.run('git', ['add', '--update']);
-
-      int? msgCount;
-
-      if (count != null) {
-        final value = int.tryParse('$count');
-        if (value == null) {
-          _logger.err('Count must be an integer.');
-
-          return ExitCode.software.code;
-        }
-        if (value < 0) {
-          _logger.err('Count must be an greater than 0.');
-          return ExitCode.software.code;
-        }
-
-        if (value > 5) {
-          _logger.err('Count must be less than or equal to 5.');
-          return ExitCode.software.code;
-        }
-
-        msgCount = value;
+      if (value > 5) {
+        _logger.err('Count must be less than or equal to 5.');
+        return ExitCode.software.code;
       }
 
-      var excludeFiles = <String>[];
+      msgCount = value;
+    }
 
-      if (exclude != null) {
-        excludeFiles = [
-          for (final e in exclude.toString().split(',')) e.trim()
-        ];
-      }
+    var excludeFiles = <String>[];
 
-      final detectingFiles = _logger.progress('Detecting staged files');
+    if (exclude != null) {
+      excludeFiles = [for (final e in exclude.toString().split(',')) e.trim()];
+    }
 
-      final staged = await getStagedDiff(excludeFiles: excludeFiles);
+    final detectingFiles = _logger.progress('Detecting staged files');
 
-      if (staged.isEmpty) {
-        detectingFiles.complete('Detecting staged files');
-        _logger.info(
-          '''
+    final staged = await getStagedDiff(excludeFiles: excludeFiles);
+
+    if (staged.isEmpty) {
+      detectingFiles.complete('Detecting staged files');
+      _logger.info(
+        '''
 No staged changes found. Stage your changes manually, or automatically stage all changes with the `--all` options.''',
-        );
-        return ExitCode.success.code;
-      }
-
-      final files = staged['files'] as List<String>? ?? [];
-
-      var message = getDetectedMessage(files: files);
-
-      detectingFiles.complete(
-        '$message:\n${files.map((e) => '     $e').join('\n')}',
       );
+      return ExitCode.success.code;
+    }
 
-      final s = _logger.progress('The AI is analyzing your changes');
+    final files = staged['files'] as List<String>? ?? [];
 
-      var messages = <String>[];
+    var message = getDetectedMessage(files: files);
 
+    detectingFiles.complete(message);
+    _logger.info(files.map((e) => '     $e').join('\n'));
+
+    final s = _logger.progress('The AI is analyzing your changes');
+
+    var messages = <String>[];
+
+    try {
       final locale = await getLocale();
       final maxLength = await getMaxLength();
 
@@ -297,47 +299,38 @@ No staged changes found. Stage your changes manually, or automatically stage all
         diff: staged['diff'] as String,
         isConventional: isConventional,
       );
-
-      s.fail('Changes analyzed');
-
-      if (messages.isEmpty) {
-        _logger.info('No commit messages were generated. Try again.');
-        return ExitCode.success.code;
-      }
-
-      if (messages.length == 1) {
-        message = messages.first;
-
-        final confirmed =
-            _logger.confirm('Use this commit message?\n\n   $message\n');
-
-        if (!confirmed) {
-          _logger.info('Commit message canceled.');
-          return ExitCode.software.code;
-        }
-      } else {
-        final selected = _logger.chooseOne(
-          'Pick a commit message to use: ',
-          choices: messages,
-        );
-
-        if (selected.isEmpty) {
-          _logger.info('Commit message canceled.');
-          return ExitCode.software.code;
-        }
-
-        message = selected;
-      }
-
-      await Process.run('git', ['commit', '-m', message]);
-
-      s.complete('Successfully committed');
-
-      return ExitCode.success.code;
-    } catch (e) {
-      print(e.runtimeType);
-      print(e);
-      exit(0);
+    } finally {
+      s.complete('Changes analyzed');
     }
+
+    if (messages.isEmpty) {
+      _logger.info('No commit messages were generated. Try again.');
+      return ExitCode.success.code;
+    }
+
+    if (messages.length == 1) {
+      message = messages.first;
+
+      final confirmed =
+          _logger.confirm('\nUse this commit message?\n\n   $message\n\n');
+
+      if (!confirmed) {
+        s.fail('Commit message canceled.');
+        return ExitCode.software.code;
+      }
+    } else {
+      final selected = _logger.chooseOne(
+        'Pick a commit message to use: ',
+        choices: messages,
+      );
+
+      message = selected;
+    }
+
+    await Process.run('git', ['commit', '-m', message]);
+
+    s.complete('Successfully committed');
+
+    return ExitCode.success.code;
   }
 }
