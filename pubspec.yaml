@@ -1,10 +1,19 @@
 name: ai_commit
 description: Dart CLI for generate commit messages with OpenAI
 version: 0.0.1
-publish_to: none
-
+repository: https://github.com/thitlwincoder/ai_commit
+issue_tracker: https://github.com/thitlwincoder/ai_commit/issues
 environment:
   sdk: ">=3.0.0 <4.0.0"
+
+funding:
+  - https://paypal.me/thitlwin312
+  - https://ko-fi.com/thitlwincoder
+
+topics:
+  - ai
+  - commit
+  - openai
 
 dependencies:
   args: ^2.4.2
