@@ -46,7 +46,7 @@ Count of messages to generate (Warning: generating multiple costs more)''',
       ..addOption(
         'model',
         abbr: 'm',
-        help: 'Locale language for commit message.',
+        help: 'OpenAI model to use for generation',
       )
       ..addOption(
         'exclude',
@@ -290,7 +290,6 @@ No staged changes found. Stage your changes manually, or automatically stage all
     var messages = <String>[];
 
     try {
-
       var completions = 1;
 
       if (msgCount != null) {
