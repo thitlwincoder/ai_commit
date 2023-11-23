@@ -1,5 +1,5 @@
 name: ai_commit
-description: A Very Good Project created by Very Good CLI.
+description: Dart CLI for generate commit messages with OpenAI
 version: 0.0.1
 publish_to: none
 
