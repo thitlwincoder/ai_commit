@@ -38,15 +38,29 @@ class AiCommitCommandRunner extends CompletionCommandRunner<int> {
         help: 'Automatically stage changes in tracked files for the commit',
       )
       ..addOption(
+        'count',
+        abbr: 'c',
+        help: '''
+Count of messages to generate (Warning: generating multiple costs more)''',
+      )
+      ..addOption(
+        'model',
+        abbr: 'm',
+        help: 'Locale language for commit message.',
+      )
+      ..addOption(
         'exclude',
         abbr: 'x',
         help: 'Files to exclude from AI analysis',
       )
       ..addOption(
-        'count',
-        abbr: 'c',
-        help: '''
-Count of messages to generate (Warning: generating multiple costs more)''',
+        'max-length',
+        abbr: 'l',
+        help: 'Set max length of commit message.',
+      )
+      ..addOption(
+        'locale',
+        help: 'Locale language for commit message.',
       )
       ..addFlag(
         'conventional',
@@ -168,7 +182,10 @@ Format the commit message according to the Conventional Commits specification.''
       exitCode = await _startWork(
         all: topLevelResults.wasParsed('all') ? topLevelResults['all'] : null,
         count: topLevelResults['count'],
+        model: topLevelResults['model'],
+        locale: topLevelResults['locale'],
         exclude: topLevelResults['exclude'],
+        maxLength: topLevelResults['max-length'],
         conventional: topLevelResults.wasParsed('conventional')
             ? topLevelResults['conventional']
             : null,
@@ -207,6 +224,9 @@ Run ${lightCyan.wrap('$executableName update')} to update''',
     required dynamic count,
     required dynamic exclude,
     required dynamic conventional,
+    required dynamic model,
+    required dynamic locale,
+    required dynamic maxLength,
   }) async {
     final apiKey = await getKey();
     if (apiKey == null) {
@@ -224,7 +244,6 @@ Run ${lightCyan.wrap('$executableName update')} to update''',
       final value = int.tryParse('$count');
       if (value == null) {
         _logger.err('Count must be an integer.');
-
         return ExitCode.software.code;
       }
       if (value < 0) {
@@ -271,8 +290,6 @@ No staged changes found. Stage your changes manually, or automatically stage all
     var messages = <String>[];
 
     try {
-      final locale = await getLocale();
-      final maxLength = await getMaxLength();
 
       var completions = 1;
 
@@ -290,11 +307,48 @@ No staged changes found. Stage your changes manually, or automatically stage all
         isConventional = await getConventional();
       }
 
+      String? aiModel;
+
+      if (model != null) {
+        aiModel = model as String;
+      } else {
+        aiModel = await getModel();
+      }
+
+      int maxLength0;
+
+      if (maxLength != null) {
+        final value = int.tryParse('$maxLength');
+
+        if (value == null) {
+          _logger.err('Max length must be an integer.');
+          return ExitCode.software.code;
+        }
+
+        if (value < 20) {
+          _logger.err('Max length must be an greater than 20.');
+          return ExitCode.software.code;
+        }
+
+        maxLength0 = value;
+      } else {
+        maxLength0 = await getMaxLength();
+      }
+
+      String? locale0;
+
+      if (locale != null) {
+        locale0 = locale as String;
+      } else {
+        locale0 = await getLocale();
+      }
+
       messages = await generateCommitMessage(
         apiKey: apiKey,
-        locale: locale,
+        locale: locale0,
+        model: aiModel,
         logger: _logger,
-        maxLength: maxLength,
+        maxLength: maxLength0,
         completions: completions,
         diff: staged['diff'] as String,
         isConventional: isConventional,

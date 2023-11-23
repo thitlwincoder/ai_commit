@@ -48,9 +48,10 @@ Future<List<String>> generateCommitMessage({
   required int maxLength,
   required bool isConventional,
   required Logger logger,
-  String? model,
+  required String? model,
 }) async {
   model ??= 'gpt-3.5-turbo-1106';
+
   try {
     OpenAI.apiKey = apiKey;
     final completion = await OpenAI.instance.chat.create(

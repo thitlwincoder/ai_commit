@@ -6,66 +6,125 @@
 
 Dart CLI for generated git commit messages with OpenAI.
 
-A Very Good Project created by Very Good CLI..
-
 ---
 
-## Getting Started 🚀
+## Quick Started 🚀
 
-If the CLI application is available on [pub](https://pub.dev), activate globally via:
+Installing
 
 ```sh
 dart pub global activate ai_commit
 ```
 
-Or locally via:
+Or install a [specific version](https://pub.dev/packages/ai_commit/versions) using:
 
 ```sh
-dart pub global activate --source=path <path to this package>
+dart pub global activate ai_commit <version>
 ```
 
+## Commands
+
+### `ai_commit -h`
+
+See the complete list of commands and usage information.
+
+```sh
+Dart CLI for generated commit messages with OpenAI.
+
+Usage: ai_commit <command> [arguments]
+
+Global options:
+-h, --help                 Print this usage information.
+-a, --all                  Automatically stage changes in tracked files for the commit
+-x, --exclude              Files to exclude from AI analysis
+-c, --count                Count of messages to generate (Warning: generating multiple costs more)
+    --[no-]conventional    Format the commit message according to the Conventional Commits specification.
+-v, --version              Print the current version.
+    --[no-]verbose         Noisy logging, including all shell commands executed.
+
+Available commands:
+  config   ai_commit configuration
+  update   Update the CLI.
+
+Run "ai_commit help <command>" for more information about a command.
+```
 ## Usage
 
+Generate commit message
 ```sh
-# Sample command
-$ ai_commit sample
-
-# Sample command option
-$ ai_commit sample --cyan
-
-# Show CLI version
-$ ai_commit --version
-
-# Show usage help
-$ ai_commit --help
+ai_commit
 ```
 
-## Running Tests with coverage 🧪
-
-To run all unit tests use the following command:
-
+Add all files and generate a commit message
 ```sh
-$ dart pub global activate coverage 1.2.0
-$ dart test --coverage=coverage
-$ dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
+ai_commit -a
 ```
 
-To view the generated coverage report you can use [lcov](https://github.com/linux-test-project/lcov)
-.
-
+Files to exclude from AI analysis
 ```sh
-# Generate Coverage Report
-$ genhtml coverage/lcov.info -o coverage/
+# single
+ai_commit -x test.dart
 
-# Open Coverage Report
-$ open coverage/index.html
+# multiple
+ai_commit -x one.dart, two.dart
 ```
 
----
+Count of messages to generate **(Warning: generating multiple costs more)**
+```sh
+ai_commit -c 2
+```
 
-[coverage_badge]: coverage_badge.svg
-[license_badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[license_link]: https://opensource.org/licenses/MIT
-[very_good_analysis_badge]: https://img.shields.io/badge/style-very_good_analysis-B22C89.svg
-[very_good_analysis_link]: https://pub.dev/packages/very_good_analysis
-[very_good_cli_link]: https://github.com/VeryGoodOpenSource/very_good_cli
+Format the commit message according to the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+```sh
+ai_commit --conventional
+```
+### `ai_commit config`
+
+Save data configuration and use later.
+
+```sh
+ai_commit configuration
+
+Usage: ai_commit config [arguments]
+-h, --help                 Print this usage information.
+    --key                  OpenAI API key.
+    --locale               Set locale language.
+    --count                Generate commit message count.
+    --[no-]conventional    Format the commit message according to the Conventional Commits specification.
+    --model                Set model name for OpenAI API.
+    --max-length           Set max length of commit message.
+
+Run "ai_commit help" to see global options.
+```
+## Usage
+
+Set OpenAI API key
+```sh
+ai_commit config --key sk-xxx
+```
+
+Set locale language
+```sh
+ai_commit config --locale en-US
+```
+
+
+Generate commit message count
+```sh
+ai_commit config --count 1
+```
+
+Format the commit message according to the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+```sh
+ai_commit config --conventional
+```
+
+ Set [model name](https://platform.openai.com/docs/models/overview) for OpenAI API
+```sh
+ai_commit config --model gpt-3.5-turbo-1106
+```
+
+Set max length of commit message
+```sh
+ai_commit config --max-length 200
+```

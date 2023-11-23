@@ -9,28 +9,32 @@ class ConfigCommand extends Command<int> {
     argParser
       ..addOption(
         'key',
+        abbr: 'k',
         help: 'OpenAI API key.',
       )
       ..addOption(
-        'locale',
-        help: 'Set locale language.',
+        'count',
+        abbr: 'c',
+        help: 'Generate commit message count.',
       )
       ..addOption(
-        'count',
-        help: 'Generate commit message count.',
+        'model',
+        abbr: 'm',
+        help: 'Set model name for OpenAI API.',
+      )
+      ..addOption(
+        'max-length',
+        abbr: 'l',
+        help: 'Set max length of commit message.',
+      )
+      ..addOption(
+        'locale',
+        help: 'Set locale language for commit message.',
       )
       ..addFlag(
         'conventional',
         help: '''
 Format the commit message according to the Conventional Commits specification.''',
-      )
-      ..addOption(
-        'model',
-        help: 'Set model name for OpenAI API.',
-      )
-      ..addOption(
-        'max-length',
-        help: 'Set max length of commit message.',
       );
   }
 
