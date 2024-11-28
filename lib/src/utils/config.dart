@@ -15,6 +15,11 @@ Future<dynamic> getData(String key, [dynamic defaultValue]) async {
   return box.get(key) ?? defaultValue;
 }
 
+Future<void> clearData() async {
+  final box = await Hive.openBox<dynamic>('ai_commit_config');
+  await box.clear();
+}
+
 // store openai api key
 Future<void> setKey(String value) async {
   await setData('api_key', value);

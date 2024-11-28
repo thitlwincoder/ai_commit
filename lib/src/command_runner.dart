@@ -58,6 +58,24 @@ Count of messages to generate (Warning: generating multiple costs more)''',
         abbr: 'l',
         help: 'Set max length of commit message.',
       )
+      ..addFlag(
+        'breaking',
+        abbr: 'b',
+        negatable: false,
+        help: '''Format the commit message as breaking changes.''',
+      )
+      ..addFlag(
+        'version',
+        abbr: 'v',
+        negatable: false,
+        help: 'Print the current version.',
+      )
+      ..addFlag(
+        'reset',
+        abbr: 'r',
+        negatable: false,
+        help: 'Reset configuration.',
+      )
       ..addOption(
         'locale',
         help: 'Locale language for commit message.',
@@ -66,12 +84,6 @@ Count of messages to generate (Warning: generating multiple costs more)''',
         'conventional',
         help: '''
 Format the commit message according to the Conventional Commits specification.''',
-      )
-      ..addFlag(
-        'version',
-        abbr: 'v',
-        negatable: false,
-        help: 'Print the current version.',
       )
       ..addFlag(
         'verbose',
@@ -178,6 +190,10 @@ Format the commit message according to the Conventional Commits specification.''
     } else if (topLevelResults.command?.name == ConfigCommand.commandName ||
         topLevelResults['help'] == true) {
       exitCode = await super.runCommand(topLevelResults);
+    } else if (topLevelResults.wasParsed('reset')) {
+      await clearData();
+      _logger.success('Configuration has been reset.');
+      exitCode = ExitCode.success.code;
     } else {
       exitCode = await _startWork(
         all: topLevelResults.wasParsed('all') ? topLevelResults['all'] : null,
@@ -189,6 +205,7 @@ Format the commit message according to the Conventional Commits specification.''
         conventional: topLevelResults.wasParsed('conventional')
             ? topLevelResults['conventional']
             : null,
+        breaking: topLevelResults.wasParsed('breaking'),
       );
     }
 
@@ -227,6 +244,7 @@ Run ${lightCyan.wrap('$executableName update')} to update''',
     required dynamic model,
     required dynamic locale,
     required dynamic maxLength,
+    required dynamic breaking,
   }) async {
     final apiKey = await getKey();
     if (apiKey == null) {
@@ -351,6 +369,7 @@ No staged changes found. Stage your changes manually, or automatically stage all
         completions: completions,
         diff: staged['diff'] as String,
         isConventional: isConventional,
+        isBreaking: breaking as bool,
       );
     } finally {
       s.complete('Changes analyzed');
@@ -387,3 +406,5 @@ No staged changes found. Stage your changes manually, or automatically stage all
     return ExitCode.success.code;
   }
 }
+
+class _resetConfig {}

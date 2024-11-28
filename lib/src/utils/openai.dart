@@ -49,6 +49,7 @@ Future<List<String>> generateCommitMessage({
   required bool isConventional,
   required Logger logger,
   required String? model,
+  required bool isBreaking,
 }) async {
   model ??= 'gpt-3.5-turbo-1106';
 
@@ -70,6 +71,7 @@ Future<List<String>> generateCommitMessage({
               generatePrompt(
                 locale: locale,
                 maxLength: maxLength,
+                isBreaking: isBreaking,
                 isConventional: isConventional,
               ),
             ),

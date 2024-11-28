@@ -28,14 +28,17 @@ String generatePrompt({
   required String? locale,
   required int maxLength,
   required bool isConventional,
+  required bool isBreaking,
 }) {
   final msgs = [
     '''
-Generate a concise git commit message written in present tense for the following code diff with the given specifications below:''',
+Generate a concise Git commit message in present tense for the following code diff, adhering to the specifications below:''',
     if (locale != null) 'Message language: $locale',
     'Commit message must be a maximum of $maxLength characters.',
+    if (isBreaking)
+      '''Indicate breaking changes explicitly using the format BREAKING CHANGE: [description] if applicable''',
     '''
-Exclude anything unnecessary such as translation. Your entire response will be passed directly into git commit.''',
+Exclude unnecessary details, such as translation, and ensure the message is suitable for direct use in git commit.''',
     if (isConventional) ...[conventionalPrompt, specifyCommitFormat],
   ];
 
