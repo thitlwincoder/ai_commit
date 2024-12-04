@@ -17,7 +17,7 @@ Changes that do not affect the meaning of the code (white-space, formatting, mis
   };
 
   return '''
-Choose a type from the type-to-description JSON below that best describes the git diff:
+Select a type from the JSON below that best matches the git diff:
 ${jsonEncode(map)}''';
 }
 
@@ -34,11 +34,10 @@ String generatePrompt({
     '''
 Generate a concise Git commit message in present tense for the following code diff, adhering to the specifications below:''',
     if (locale != null) 'Message language: $locale',
-    'Commit message must be a maximum of $maxLength characters.',
+    'Commit message: Maximum $maxLength characters',
     if (isBreaking)
-      '''Indicate breaking changes explicitly using the format BREAKING CHANGE: [description] if applicable''',
-    '''
-Exclude unnecessary details, such as translation, and ensure the message is suitable for direct use in git commit.''',
+      '''prepend BREAKING CHANGE: to the message and append ! to the type (e.g., feat!, fix!).''',
+    '''Exclude unnecessary details, ensuring the message is directly usable in a git commit.''',
     if (isConventional) ...[conventionalPrompt, specifyCommitFormat],
   ];
 
